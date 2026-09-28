@@ -8,7 +8,7 @@ import {
   type PollInputErrors,
   validatePollInput,
 } from "@/lib/poll-rules";
-import { type CreatePollResult, createPoll } from "@/lib/polls";
+import { type CreatePollResult, createPoll, deletePoll } from "@/lib/polls";
 
 export type LoginState = { error: string | null };
 
@@ -42,6 +42,13 @@ export async function createPollAction(
     return { status: "invalid", errors: { options: DUPLICATE_OPTION_ERROR }, values };
   }
   redirect(`/admin?created=${created.id}`);
+}
+
+export async function deletePollAction(pollId: string): Promise<void> {
+  await requireAdmin();
+  await deletePoll(pollId);
+  // A fresh load also drops any ?created= banner that pointed at this poll.
+  redirect("/admin");
 }
 
 export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {

@@ -11,6 +11,8 @@ export type PollSummary = { id: string; question: string; totalVotes: number };
 
 export type Poll = { id: string; question: string; options: { id: string; name: string }[] };
 
+const NEWEST_FIRST = [desc(polls.createdAt), desc(polls.id)];
+
 // Newest first. Always read at request time, never at build time.
 export async function listPolls(): Promise<PollSummary[]> {
   await connection();
@@ -19,7 +21,7 @@ export async function listPolls(): Promise<PollSummary[]> {
     .from(polls)
     .leftJoin(votes, eq(votes.pollId, polls.id))
     .groupBy(polls.id)
-    .orderBy(desc(polls.createdAt), desc(polls.id));
+    .orderBy(...NEWEST_FIRST);
 }
 
 // Returns null for an unknown or malformed id. Always read at request time;
@@ -72,15 +74,23 @@ export async function getVotedOptionId(
 
 export type PollResults = Results<{ id: string; name: string; votes: number }>;
 
-// Results in the poll's option order.
-export async function getResults(poll: Poll): Promise<PollResults> {
-  const rows = await db
-    .select({ optionId: votes.optionId, votes: count() })
-    .from(votes)
-    .where(eq(votes.pollId, poll.id))
-    .groupBy(votes.optionId);
-  const counts = new Map(rows.map((row) => [row.optionId, row.votes]));
-  return computeResults(poll.options.map((o) => ({ ...o, votes: counts.get(o.id) ?? 0 })));
+export async function getResults(pollId: string): Promise<PollResults> {
+  return toResults(await optionVoteCounts(pollId));
+}
+
+// Vote count per option in option order, for one poll or (no id) every poll.
+function optionVoteCounts(pollId?: string) {
+  return db
+    .select({ pollId: options.pollId, id: options.id, name: options.name, votes: count(votes.id) })
+    .from(options)
+    .leftJoin(votes, eq(votes.optionId, options.id))
+    .where(pollId ? eq(options.pollId, pollId) : undefined)
+    .groupBy(options.id)
+    .orderBy(asc(options.position));
+}
+
+function toResults(rows: { id: string; name: string; votes: number }[]): PollResults {
+  return computeResults(rows.map(({ id, name, votes }) => ({ id, name, votes })));
 }
 
 export type CastVoteResult = "voted" | "already-voted" | "poll-missing" | "invalid-option";
@@ -123,4 +133,28 @@ function hasPostgresCode(error: unknown, code: string): boolean {
     if ((e as { code?: string }).code === code) return true;
   }
   return false;
+}
+
+export type PollWithResults = { id: string; question: string; results: PollResults };
+
+// Every poll with its results, newest first, for the admin (who may see results without voting).
+export async function listPollsWithResults(): Promise<PollWithResults[]> {
+  await connection();
+  const [pollRows, optionRows] = await db.batch([
+    db
+      .select({ id: polls.id, question: polls.question })
+      .from(polls)
+      .orderBy(...NEWEST_FIRST),
+    optionVoteCounts(),
+  ]);
+  return pollRows.map((poll) => ({
+    ...poll,
+    results: toResults(optionRows.filter((option) => option.pollId === poll.id)),
+  }));
+}
+
+// Deletes the poll; its options and votes go with it (ON DELETE CASCADE).
+export async function deletePoll(id: string): Promise<void> {
+  if (!isUuid(id)) return;
+  await db.delete(polls).where(eq(polls.id, id));
 }

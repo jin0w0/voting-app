@@ -26,7 +26,7 @@ export default async function PollPage({ params }: PageProps<"/polls/[id]">) {
       </Link>
       <h1 className="text-2xl font-bold">{poll.question}</h1>
       {votedOptionId ? (
-        <PollResultsView results={await getResults(poll)} votedOptionId={votedOptionId} />
+        <PollResultsView results={await getResults(poll.id)} votedOptionId={votedOptionId} />
       ) : (
         <VoteForm poll={poll} action={castVoteAction.bind(null, poll.id)} />
       )}
