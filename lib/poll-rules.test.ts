@@ -2,22 +2,22 @@ import { describe, expect, it } from "vitest";
 import { computeResults, validatePollInput } from "./poll-rules";
 
 describe("computeResults", () => {
-  it("gives every option 0% when there are no votes", () => {
+  it("gives every option 0% and no leader when there are no votes", () => {
     expect(computeResults([{ name: "짜장", votes: 0 }, { name: "짬뽕", votes: 0 }])).toEqual({
       totalVotes: 0,
       options: [
-        { name: "짜장", votes: 0, percent: 0 },
-        { name: "짬뽕", votes: 0, percent: 0 },
+        { name: "짜장", votes: 0, percent: 0, leading: false },
+        { name: "짬뽕", votes: 0, percent: 0, leading: false },
       ],
     });
   });
 
-  it("gives 100% to the only option that got votes", () => {
+  it("gives 100% and the lead to the only option that got votes", () => {
     expect(computeResults([{ name: "짜장", votes: 0 }, { name: "짬뽕", votes: 4 }])).toEqual({
       totalVotes: 4,
       options: [
-        { name: "짜장", votes: 0, percent: 0 },
-        { name: "짬뽕", votes: 4, percent: 100 },
+        { name: "짜장", votes: 0, percent: 0, leading: false },
+        { name: "짬뽕", votes: 4, percent: 100, leading: true },
       ],
     });
   });
@@ -30,6 +30,15 @@ describe("computeResults", () => {
     ]);
     expect(results.options.map((o) => o.percent)).toEqual([33, 33, 33]);
     expect(computeResults([{ name: "A", votes: 2 }, { name: "B", votes: 1 }]).options.map((o) => o.percent)).toEqual([67, 33]);
+  });
+
+  it("marks every option tied for the most votes as leading", () => {
+    const results = computeResults([
+      { name: "A", votes: 3 },
+      { name: "B", votes: 1 },
+      { name: "C", votes: 3 },
+    ]);
+    expect(results.options.map((o) => o.leading)).toEqual([true, false, true]);
   });
 });
 

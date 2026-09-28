@@ -36,17 +36,20 @@ export function validatePollInput(question: string, optionNames: string[]): Poll
 
 export type Results<T extends { votes: number }> = {
   totalVotes: number;
-  options: (T & { percent: number })[];
+  // leading: most votes (all tied options lead); nobody leads while there are no votes.
+  options: (T & { percent: number; leading: boolean })[];
 };
 
 // Keeps option order. Percentages are rounded for display, so they may not add up to exactly 100.
 export function computeResults<T extends { votes: number }>(options: T[]): Results<T> {
   const totalVotes = options.reduce((sum, option) => sum + option.votes, 0);
+  const mostVotes = Math.max(0, ...options.map((option) => option.votes));
   return {
     totalVotes,
     options: options.map((option) => ({
       ...option,
       percent: totalVotes === 0 ? 0 : Math.round((option.votes / totalVotes) * 100),
+      leading: mostVotes > 0 && option.votes === mostVotes,
     })),
   };
 }
