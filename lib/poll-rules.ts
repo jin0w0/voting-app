@@ -33,3 +33,20 @@ export function validatePollInput(question: string, optionNames: string[]): Poll
 
   return Object.keys(errors).length === 0 ? { ok: true, poll } : { ok: false, errors };
 }
+
+export type Results<T extends { votes: number }> = {
+  totalVotes: number;
+  options: (T & { percent: number })[];
+};
+
+// Keeps option order. Percentages are rounded for display, so they may not add up to exactly 100.
+export function computeResults<T extends { votes: number }>(options: T[]): Results<T> {
+  const totalVotes = options.reduce((sum, option) => sum + option.votes, 0);
+  return {
+    totalVotes,
+    options: options.map((option) => ({
+      ...option,
+      percent: totalVotes === 0 ? 0 : Math.round((option.votes / totalVotes) * 100),
+    })),
+  };
+}

@@ -16,9 +16,10 @@ export default async function HomePage() {
             <li key={poll.id}>
               <Link
                 href={`/polls/${poll.id}`}
-                className="block rounded-xl border border-zinc-200 px-4 py-4 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                className="flex items-baseline justify-between gap-3 rounded-xl border border-zinc-200 px-4 py-4 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
               >
-                {poll.question}
+                <span>{poll.question}</span>
+                <span className="shrink-0 text-sm tabular-nums text-zinc-500">{poll.totalVotes}표</span>
               </Link>
             </li>
           ))}

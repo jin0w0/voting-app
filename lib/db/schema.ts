@@ -19,3 +19,20 @@ export const options = pgTable(
   },
   (t) => [uniqueIndex("options_poll_id_name_key").on(t.pollId, sql`lower(${t.name})`)],
 );
+
+export const votes = pgTable(
+  "votes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    pollId: uuid("poll_id")
+      .notNull()
+      .references(() => polls.id, { onDelete: "cascade" }),
+    optionId: uuid("option_id")
+      .notNull()
+      .references(() => options.id, { onDelete: "cascade" }),
+    // Anonymous id from the voter's browser cookie (ADR-0001).
+    voterId: uuid("voter_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("votes_poll_id_voter_id_key").on(t.pollId, t.voterId)],
+);

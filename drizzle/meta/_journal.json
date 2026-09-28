@@ -8,6 +8,13 @@
       "when": 1790597311307,
       "tag": "0000_create_polls_and_options",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790598032092,
+      "tag": "0001_create_votes",
+      "breakpoints": true
     }
   ]
 }
