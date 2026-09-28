@@ -5,6 +5,8 @@ export const polls = pgTable("polls", {
   id: uuid("id").primaryKey().defaultRandom(),
   question: text("question").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  // Null: no deadline, the poll stays open until closed early or deleted.
+  deadline: timestamp("deadline", { withTimezone: true }),
 });
 
 export const options = pgTable(

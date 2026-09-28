@@ -28,6 +28,8 @@ export async function castVoteAction(
     return { status: "failed" };
   }
   if (result === "poll-missing" || result === "invalid-option") return { status: result };
+  // The poll page explains that it closed and shows the results; no vote was recorded.
+  if (result === "closed") redirect(`/polls/${pollId}`);
 
   // "voted" and "already-voted" both land on the results.
   if (!existingVoterId) await saveVoterId(voterId);

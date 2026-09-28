@@ -19,6 +19,8 @@ export function CreatePollForm() {
   const [optionNames, setOptionNames] = useState<string[]>(
     submitted?.optionNames ?? Array(MIN_OPTIONS).fill(""),
   );
+  const [hasDeadline, setHasDeadline] = useState(submitted ? submitted.deadline !== null : false);
+  const [deadline, setDeadline] = useState(submitted?.deadline ?? "");
 
   const setOption = (index: number, value: string) =>
     setOptionNames((current) => current.map((name, i) => (i === index ? value : name)));
@@ -75,6 +77,39 @@ export function CreatePollForm() {
         </button>
         <FieldError message={errors.options} />
       </fieldset>
+
+      <div className="flex flex-col gap-2">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            name="hasDeadline"
+            checked={hasDeadline}
+            onChange={(e) => setHasDeadline(e.target.checked)}
+            className="size-4"
+          />
+          마감 시각 정하기
+        </label>
+        {hasDeadline && (
+          <div className="flex flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="datetime-local"
+                name="deadline"
+                aria-label="마감 시각"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+                required
+                className="rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+              />
+              <span className="text-sm text-zinc-500">(한국 시간)</span>
+            </div>
+            <p className="text-xs text-zinc-500">
+              마감 시각이 지나면 투표가 저절로 마감됩니다. 만든 뒤에는 바꿀 수 없습니다.
+            </p>
+          </div>
+        )}
+        <FieldError message={errors.deadline} />
+      </div>
 
       {state.status === "failed" && (
         <FieldError message="투표를 저장하지 못했습니다. 잠시 후 다시 시도하세요." />

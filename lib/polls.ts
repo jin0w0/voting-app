@@ -1,15 +1,33 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import { connection } from "next/server";
 import { cache } from "react";
 import { db } from "./db";
 import { isUuid } from "./ids";
 import { options, polls, votes } from "./db/schema";
-import { computeResults, type PollInput, type Results } from "./poll-rules";
+import {
+  computeResults,
+  type PollInput,
+  type PollStatus,
+  pollStatus,
+  type Results,
+} from "./poll-rules";
 
 export type PollSummary = { id: string; question: string; totalVotes: number };
 
-export type Poll = { id: string; question: string; options: { id: string; name: string }[] };
+export type Poll = {
+  id: string;
+  question: string;
+  options: { id: string; name: string }[];
+  deadline: Date | null;
+  status: PollStatus;
+  // The database clock at read time, for formatting relative to "now".
+  now: Date;
+};
+
+// The database clock: every open/closed decision uses it, never the app server's clock.
+// mapWith(createdAt) reuses that timestamptz column's decoder to turn the value into a Date.
+const dbNow = sql<Date>`now()`.mapWith(polls.createdAt);
 
 const NEWEST_FIRST = [desc(polls.createdAt), desc(polls.id)];
 
@@ -29,14 +47,17 @@ export async function listPolls(): Promise<PollSummary[]> {
 export const getPoll = cache(async (id: string): Promise<Poll | null> => {
   await connection();
   if (!isUuid(id)) return null;
-  const poll = await db.query.polls.findFirst({ where: eq(polls.id, id) });
+  const [poll] = await db
+    .select({ id: polls.id, question: polls.question, deadline: polls.deadline, now: dbNow })
+    .from(polls)
+    .where(eq(polls.id, id));
   if (!poll) return null;
   const pollOptions = await db
     .select({ id: options.id, name: options.name })
     .from(options)
     .where(eq(options.pollId, id))
     .orderBy(asc(options.position));
-  return { id: poll.id, question: poll.question, options: pollOptions };
+  return { ...poll, options: pollOptions, status: pollStatus(poll, poll.now) };
 });
 
 export type CreatePollResult = { ok: true; id: string } | { ok: false; reason: "duplicate-option" };
@@ -46,7 +67,7 @@ export async function createPoll(input: PollInput): Promise<CreatePollResult> {
   const id = randomUUID();
   try {
     await db.batch([
-      db.insert(polls).values({ id, question: input.question }),
+      db.insert(polls).values({ id, question: input.question, deadline: input.deadline }),
       db.insert(options).values(
         input.optionNames.map((name, position) => ({ pollId: id, name, position })),
       ),
@@ -93,7 +114,7 @@ function toResults(rows: { id: string; name: string; votes: number }[]): PollRes
   return computeResults(rows.map(({ id, name, votes }) => ({ id, name, votes })));
 }
 
-export type CastVoteResult = "voted" | "already-voted" | "poll-missing" | "invalid-option";
+export type CastVoteResult = "voted" | "already-voted" | "poll-missing" | "invalid-option" | "closed";
 
 export async function castVote(
   pollId: string,
@@ -104,10 +125,12 @@ export async function castVote(
   if (!isUuid(optionId)) return "invalid-option";
 
   const [option] = await db
-    .select({ id: options.id })
+    .select({ id: options.id, deadline: polls.deadline, now: dbNow })
     .from(options)
+    .innerJoin(polls, eq(polls.id, options.pollId))
     .where(and(eq(options.id, optionId), eq(options.pollId, pollId)));
   if (!option) return (await pollExists(pollId)) ? "invalid-option" : "poll-missing";
+  if (pollStatus(option, option.now) === "closed") return "closed";
 
   try {
     await db.insert(votes).values({ pollId, optionId, voterId });

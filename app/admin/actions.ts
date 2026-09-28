@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { endAdminSession, requireAdmin, startAdminSession } from "@/lib/admin-session";
 import {
   DUPLICATE_OPTION_ERROR,
-  type PollInput,
+  type PollForm,
   type PollInputErrors,
   validatePollInput,
 } from "@/lib/poll-rules";
@@ -15,8 +15,8 @@ export type LoginState = { error: string | null };
 // `values` echoes what was submitted so the form can refill itself, even without JavaScript.
 export type CreatePollState =
   | { status: "idle" }
-  | { status: "invalid"; errors: PollInputErrors; values: PollInput }
-  | { status: "failed"; values: PollInput };
+  | { status: "invalid"; errors: PollInputErrors; values: PollForm }
+  | { status: "failed"; values: PollForm };
 
 export async function createPollAction(
   _prev: CreatePollState,
@@ -24,11 +24,13 @@ export async function createPollAction(
 ): Promise<CreatePollState> {
   await requireAdmin();
 
-  const values: PollInput = {
+  const values: PollForm = {
     question: String(formData.get("question") ?? ""),
     optionNames: formData.getAll("option").map(String),
+    deadline: formData.get("hasDeadline") ? String(formData.get("deadline") ?? "") : null,
   };
-  const result = validatePollInput(values.question, values.optionNames);
+  // The app clock is fine for rejecting past input; open/closed is decided on the database clock.
+  const result = validatePollInput(values, new Date());
   if (!result.ok) return { status: "invalid", errors: result.errors, values };
 
   let created: CreatePollResult;

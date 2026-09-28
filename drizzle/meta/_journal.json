@@ -15,6 +15,13 @@
       "when": 1790598032092,
       "tag": "0001_create_votes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790601221625,
+      "tag": "0002_add_poll_deadline",
+      "breakpoints": true
     }
   ]
 }

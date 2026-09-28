@@ -1,0 +1,1 @@
+ALTER TABLE "polls" ADD COLUMN "deadline" timestamp with time zone;
