@@ -6,7 +6,12 @@ export default async function HomePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-10">
-      <h1 className="text-2xl font-bold">투표</h1>
+      <header className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">투표</h1>
+        <Link href="/admin/login" className="text-sm text-zinc-500 hover:underline">
+          운영자 로그인
+        </Link>
+      </header>
 
       {polls.length === 0 ? (
         <p className="text-zinc-500">아직 투표가 없습니다.</p>

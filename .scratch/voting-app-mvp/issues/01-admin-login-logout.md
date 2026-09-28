@@ -15,7 +15,7 @@ Spec: [../spec.md](../spec.md)
 - [x] 이미 로그인한 상태로 `/admin/login`에 오면 `/admin`으로 이동한다
 - [x] 세션이 없거나 유효하지 않으면 `/admin`에서 `/admin/login`으로 이동한다
 - [x] 로그아웃 버튼을 누르면 세션 쿠키를 지우고 로그인 페이지로 이동한다
-- [x] 일반 화면에는 운영자 링크를 노출하지 않는다
+- [x] ~~일반 화면에는 운영자 링크를 노출하지 않는다~~ (2026-09-28 변경: 투표 목록에 "운영자 로그인" 링크를 둠. spec.md 스토리 33 참고)
 - [x] 로컬 설정에 필요한 `ADMIN_PASSWORD`, `SESSION_SECRET`을 README 등에 적는다(값은 적지 않는다)
 - [x] 코드를 쓰기 전에 `node_modules/next/dist/docs/`의 인증, 서버 액션, `cookies()`, `proxy` 가이드를 읽는다
 
