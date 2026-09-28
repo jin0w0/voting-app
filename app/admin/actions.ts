@@ -8,9 +8,9 @@ import {
   type PollInputErrors,
   validatePollInput,
 } from "@/lib/poll-rules";
-import { closePoll, type CreatePollResult, createPoll, deletePoll } from "@/lib/polls";
+import { closePoll, type CreatePollResult, createPoll, deletePoll, getDbNow } from "@/lib/polls";
 
-export type LoginState = { error: string | null };
+export type LoginState = { status: "idle" | "wrong-password" };
 
 // `values` echoes what was submitted so the form can refill itself, even without JavaScript.
 export type CreatePollState =
@@ -29,12 +29,12 @@ export async function createPollAction(
     optionNames: formData.getAll("option").map(String),
     deadline: formData.get("hasDeadline") ? String(formData.get("deadline") ?? "") : null,
   };
-  // The app clock is fine for rejecting past input; open/closed is decided on the database clock.
-  const result = validatePollInput(values, new Date());
-  if (!result.ok) return { status: "invalid", errors: result.errors, values };
 
   let created: CreatePollResult;
   try {
+    // Check a deadline on the same clock that will later decide the poll has closed.
+    const result = validatePollInput(values, values.deadline === null ? new Date() : await getDbNow());
+    if (!result.ok) return { status: "invalid", errors: result.errors, values };
     created = await createPoll(result.poll);
   } catch (error) {
     console.error("Failed to create poll", error);
@@ -59,15 +59,15 @@ export async function deletePollAction(pollId: string): Promise<void> {
   redirect("/admin");
 }
 
-export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {
+export async function loginAction(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const password = String(formData.get("password") ?? "");
   if (!(await startAdminSession(password))) {
-    return { error: "비밀번호가 올바르지 않습니다." };
+    return { status: "wrong-password" };
   }
   redirect("/admin");
 }
 
-export async function logout(): Promise<void> {
+export async function logoutAction(): Promise<void> {
   await endAdminSession();
   redirect("/admin/login");
 }

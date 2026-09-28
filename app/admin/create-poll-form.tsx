@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { primaryButton } from "@/app/ui/styles";
 import { MAX_OPTIONS, MIN_OPTIONS } from "@/lib/poll-rules";
 import { type CreatePollState, createPollAction } from "./actions";
 
@@ -115,7 +116,7 @@ export function CreatePollForm() {
 
       <button
         disabled={pending}
-        className="rounded-lg bg-zinc-900 px-4 py-2 font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+        className={primaryButton}
       >
         {pending ? "만드는 중…" : "투표 만들기"}
       </button>

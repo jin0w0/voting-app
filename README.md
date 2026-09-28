@@ -4,7 +4,17 @@
 
 - 용어: [CONTEXT.md](CONTEXT.md)
 - 결정 기록: [docs/adr/](docs/adr/)
-- 스펙과 티켓: [.scratch/voting-app-mvp/](.scratch/voting-app-mvp/)
+- 스펙과 티켓:
+  - [.scratch/voting-app-mvp/](.scratch/voting-app-mvp/): 투표 만들기, 투표하기, 결과, 운영자 로그인과 삭제
+  - [.scratch/poll-deadline-and-results-graph/](.scratch/poll-deadline-and-results-graph/): 마감 시각, 지금 마감, 결과 그래프(1위 강조). 앞 스펙의 "삭제될 때까지 열려 있음"과 결과 공개 규칙을 바꿈
+
+## 동작 요약
+
+- 투표자는 로그인하지 않고, 브라우저마다 투표 하나에 한 표를 던집니다.
+- 진행 중인 투표의 결과는 투표한 사람만 봅니다. 마감되면 누구나 봅니다. 운영자는 `/admin`에서 항상 봅니다.
+- 운영자는 투표를 만들 때 마감 시각(한국 시간)을 정할 수 있고, 목록에서 "지금 마감"으로 앞당겨 마감하거나 삭제할 수 있습니다. 마감된 투표는 다시 열리지 않습니다.
+- 진행 중인지 마감됐는지는 앱 서버가 아니라 DB 시각으로 판단합니다.
+- 투표 목록에는 진행 중인 투표가 먼저 나오고, 각 묶음 안에서는 최신순입니다.
 
 ## 환경변수
 
@@ -28,7 +38,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 
 ```bash
 npm install
-npm run dev      # http://localhost:3000, 운영자 화면은 /admin
+npm run dev      # http://localhost:3000, 운영자 화면은 /admin (목록의 "운영자 로그인" 링크)
 npm test         # Vitest (감시 모드). 한 번만 실행하려면 npx vitest run
 ```
 

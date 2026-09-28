@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, count, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNull, sql } from "drizzle-orm";
 import { connection } from "next/server";
 import { cache } from "react";
 import { db } from "./db";
@@ -16,20 +16,30 @@ import {
 // Where a poll stands, judged on the database clock; now is kept for formatting its deadline.
 export type PollState = { deadline: Date | null; status: PollStatus; now: Date };
 
-export type PollSummary = PollState & { id: string; question: string; totalVotes: number };
+type PollBase = PollState & { id: string; question: string };
 
-export type Poll = PollState & {
-  id: string;
-  question: string;
-  options: { id: string; name: string }[];
-};
+export type PollSummary = PollBase & { totalVotes: number };
+
+export type Poll = PollBase & { options: { id: string; name: string }[] };
+
+export type PollWithResults = PollBase & { results: PollResults };
 
 // The database clock: every open/closed decision uses it, never the app server's clock.
 // mapWith(createdAt) reuses that timestamptz column's decoder to turn the value into a Date.
 const dbNow = sql<Date>`now()`.mapWith(polls.createdAt);
 
+// The database clock on its own, e.g. to check a new deadline against the same clock
+// that will later decide the poll has closed.
+export async function getDbNow(): Promise<Date> {
+  const { rows } = await db.execute<{ now: string }>(sql`select now() as now`);
+  return new Date(rows[0].now);
+}
+
 // Everything pollStatus() needs, read in the same query as the poll.
 const statusColumns = { deadline: polls.deadline, closedAt: polls.closedAt, now: dbNow };
+
+// A poll row as every read needs it: identity plus what decides its status.
+const pollColumns = { ...statusColumns, id: polls.id, question: polls.question };
 
 function withStatus<T extends { deadline: Date | null; closedAt: Date | null; now: Date }>(
   row: T,
@@ -43,7 +53,7 @@ const NEWEST_FIRST = [desc(polls.createdAt), desc(polls.id)];
 export async function listPolls(): Promise<PollSummary[]> {
   await connection();
   const rows = await db
-    .select({ ...statusColumns, id: polls.id, question: polls.question, totalVotes: count(votes.id) })
+    .select({ ...pollColumns, totalVotes: count(votes.id) })
     .from(polls)
     .leftJoin(votes, eq(votes.pollId, polls.id))
     .groupBy(polls.id)
@@ -62,7 +72,7 @@ export const getPoll = cache(async (id: string): Promise<Poll | null> => {
   await connection();
   if (!isUuid(id)) return null;
   const [poll] = await db
-    .select({ ...statusColumns, id: polls.id, question: polls.question })
+    .select(pollColumns)
     .from(polls)
     .where(eq(polls.id, id));
   if (!poll) return null;
@@ -97,7 +107,7 @@ export async function createPoll(input: PollInput): Promise<CreatePollResult> {
 // The option this voter picked in this poll, or null if they have not voted.
 export async function getVotedOptionId(
   pollId: string,
-  voterId: string | undefined,
+  voterId: string | null,
 ): Promise<string | null> {
   if (!voterId) return null;
   const [vote] = await db
@@ -173,14 +183,12 @@ function hasPostgresCode(error: unknown, code: string): boolean {
   return false;
 }
 
-export type PollWithResults = PollState & { id: string; question: string; results: PollResults };
-
 // Every poll with its results, newest first, for the admin (who may see results without voting).
 export async function listPollsWithResults(): Promise<PollWithResults[]> {
   await connection();
   const [pollRows, optionRows] = await db.batch([
     db
-      .select({ ...statusColumns, id: polls.id, question: polls.question })
+      .select(pollColumns)
       .from(polls)
       .orderBy(...NEWEST_FIRST),
     optionVoteCounts(),
@@ -194,19 +202,15 @@ export async function listPollsWithResults(): Promise<PollWithResults[]> {
 }
 
 // Closes an open poll now; a poll that is already closed (early or by its deadline) is left as is.
-// The WHERE clause is pollStatus()'s "open" rule in SQL, so the check and the write are one atomic step.
+// pollStatus() decides; `closed_at IS NULL` only keeps two racing requests from both writing.
 export async function closePoll(id: string): Promise<void> {
   if (!isUuid(id)) return;
+  const [poll] = await db.select(statusColumns).from(polls).where(eq(polls.id, id));
+  if (!poll || withStatus(poll).status === "closed") return;
   await db
     .update(polls)
     .set({ closedAt: sql`now()` })
-    .where(
-      and(
-        eq(polls.id, id),
-        isNull(polls.closedAt),
-        or(isNull(polls.deadline), gt(polls.deadline, sql`now()`)),
-      ),
-    );
+    .where(and(eq(polls.id, id), isNull(polls.closedAt)));
 }
 
 // Deletes the poll; its options and votes go with it (ON DELETE CASCADE).

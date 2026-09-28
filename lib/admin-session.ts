@@ -6,6 +6,7 @@ import {
   isValidAdminSession,
   issueAdminSession,
 } from "./admin-auth";
+import { cookieOptions } from "./cookie-options";
 
 const ADMIN_SESSION_COOKIE = "admin_session";
 
@@ -32,13 +33,11 @@ export async function startAdminSession(password: string): Promise<boolean> {
   }
   if (!isCorrectAdminPassword(password, adminPassword)) return false;
 
-  (await cookies()).set(ADMIN_SESSION_COOKIE, issueAdminSession(sessionSecret(), new Date()), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: ADMIN_SESSION_MAX_AGE_SECONDS,
-  });
+  (await cookies()).set(
+    ADMIN_SESSION_COOKIE,
+    issueAdminSession(sessionSecret(), new Date()),
+    cookieOptions(ADMIN_SESSION_MAX_AGE_SECONDS),
+  );
   return true;
 }
 

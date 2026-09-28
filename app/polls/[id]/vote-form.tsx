@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { primaryButton } from "@/app/ui/styles";
 import type { Poll } from "@/lib/polls";
 import type { VoteState } from "./actions";
 
@@ -11,7 +12,7 @@ const messages: Record<VoteState["status"], string | null> = {
   "no-option": "선택지를 하나 고르세요.",
   "invalid-option": "이 투표에 없는 선택지입니다. 페이지를 새로고침하세요.",
   "poll-missing": "존재하지 않는 투표입니다. 삭제되었을 수 있습니다.",
-  failed: "투표를 저장하지 못했습니다. 잠시 후 다시 시도하세요.",
+  failed: "표를 저장하지 못했습니다. 잠시 후 다시 시도하세요.",
 };
 
 export function VoteForm({
@@ -45,7 +46,7 @@ export function VoteForm({
       )}
       <button
         disabled={pending}
-        className="rounded-lg bg-zinc-900 px-4 py-3 font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+        className={primaryButton}
       >
         {pending ? "투표하는 중…" : "투표하기"}
       </button>

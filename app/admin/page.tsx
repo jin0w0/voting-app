@@ -4,7 +4,7 @@ import { PollResultsView } from "@/app/ui/poll-results";
 import { PollStatusLabel } from "@/app/ui/poll-status-label";
 import { requireAdmin } from "@/lib/admin-session";
 import { listPollsWithResults } from "@/lib/polls";
-import { closePollAction, deletePollAction, logout } from "./actions";
+import { closePollAction, deletePollAction, logoutAction } from "./actions";
 import { CreatePollForm } from "./create-poll-form";
 import { ConfirmButton } from "./confirm-button";
 
@@ -21,7 +21,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-4 py-10">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">운영자</h1>
-        <form action={logout}>
+        <form action={logoutAction}>
           <button className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700">
             로그아웃
           </button>
