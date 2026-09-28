@@ -3,9 +3,9 @@ import Link from "next/link";
 import { PollResultsView } from "@/app/ui/poll-results";
 import { requireAdmin } from "@/lib/admin-session";
 import { listPollsWithResults } from "@/lib/polls";
-import { deletePollAction, logout } from "./actions";
+import { closePollAction, deletePollAction, logout } from "./actions";
 import { CreatePollForm } from "./create-poll-form";
-import { DeletePollButton } from "./delete-poll-button";
+import { ConfirmButton } from "./confirm-button";
 
 export const metadata: Metadata = { title: "운영자" };
 
@@ -62,10 +62,22 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
                   <Link href={`/polls/${poll.id}`} className="font-medium hover:underline">
                     {poll.question}
                   </Link>
-                  <DeletePollButton
-                    action={deletePollAction.bind(null, poll.id)}
-                    question={poll.question}
-                  />
+                  <div className="flex shrink-0 gap-2">
+                    {poll.status === "open" && (
+                      <ConfirmButton
+                        action={closePollAction.bind(null, poll.id)}
+                        confirmMessage={`"${poll.question}" 투표를 지금 마감할까요?\n마감하면 다시 열 수 없습니다.`}
+                        label="지금 마감"
+                        tone="neutral"
+                      />
+                    )}
+                    <ConfirmButton
+                      action={deletePollAction.bind(null, poll.id)}
+                      confirmMessage={`"${poll.question}" 투표를 삭제할까요?\n선택지와 표도 모두 사라지고 되돌릴 수 없습니다.`}
+                      label="삭제"
+                      tone="danger"
+                    />
+                  </div>
                 </div>
                 <details>
                   <summary className="cursor-pointer text-sm text-zinc-600 dark:text-zinc-400">

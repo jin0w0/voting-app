@@ -22,6 +22,13 @@
       "when": 1790601221625,
       "tag": "0002_add_poll_deadline",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790601452441,
+      "tag": "0003_add_poll_closed_at",
+      "breakpoints": true
     }
   ]
 }

@@ -49,7 +49,11 @@ export function validatePollInput(form: PollForm, now: Date): PollInputResult {
 export type PollStatus = "open" | "closed";
 
 // Pass the database's clock as `now` so every check agrees on the time.
-export function pollStatus(poll: { deadline: Date | null }, now: Date): PollStatus {
+export function pollStatus(
+  poll: { deadline: Date | null; closedAt: Date | null },
+  now: Date,
+): PollStatus {
+  if (poll.closedAt !== null) return "closed";
   return poll.deadline !== null && now.getTime() >= poll.deadline.getTime() ? "closed" : "open";
 }
 

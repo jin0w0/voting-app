@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, count, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { connection } from "next/server";
 import { cache } from "react";
 import { db } from "./db";
@@ -29,6 +29,9 @@ export type Poll = {
 // mapWith(createdAt) reuses that timestamptz column's decoder to turn the value into a Date.
 const dbNow = sql<Date>`now()`.mapWith(polls.createdAt);
 
+// Everything pollStatus() needs, read in the same query as the poll.
+const statusColumns = { deadline: polls.deadline, closedAt: polls.closedAt, now: dbNow };
+
 const NEWEST_FIRST = [desc(polls.createdAt), desc(polls.id)];
 
 // Newest first. Always read at request time, never at build time.
@@ -48,7 +51,7 @@ export const getPoll = cache(async (id: string): Promise<Poll | null> => {
   await connection();
   if (!isUuid(id)) return null;
   const [poll] = await db
-    .select({ id: polls.id, question: polls.question, deadline: polls.deadline, now: dbNow })
+    .select({ ...statusColumns, id: polls.id, question: polls.question })
     .from(polls)
     .where(eq(polls.id, id));
   if (!poll) return null;
@@ -125,7 +128,7 @@ export async function castVote(
   if (!isUuid(optionId)) return "invalid-option";
 
   const [option] = await db
-    .select({ id: options.id, deadline: polls.deadline, now: dbNow })
+    .select({ ...statusColumns, id: options.id })
     .from(options)
     .innerJoin(polls, eq(polls.id, options.pollId))
     .where(and(eq(options.id, optionId), eq(options.pollId, pollId)));
@@ -158,22 +161,45 @@ function hasPostgresCode(error: unknown, code: string): boolean {
   return false;
 }
 
-export type PollWithResults = { id: string; question: string; results: PollResults };
+export type PollWithResults = {
+  id: string;
+  question: string;
+  deadline: Date | null;
+  status: PollStatus;
+  now: Date;
+  results: PollResults;
+};
 
 // Every poll with its results, newest first, for the admin (who may see results without voting).
 export async function listPollsWithResults(): Promise<PollWithResults[]> {
   await connection();
   const [pollRows, optionRows] = await db.batch([
     db
-      .select({ id: polls.id, question: polls.question })
+      .select({ ...statusColumns, id: polls.id, question: polls.question })
       .from(polls)
       .orderBy(...NEWEST_FIRST),
     optionVoteCounts(),
   ]);
   return pollRows.map((poll) => ({
     ...poll,
+    status: pollStatus(poll, poll.now),
     results: toResults(optionRows.filter((option) => option.pollId === poll.id)),
   }));
+}
+
+// Closes an open poll now; a poll that is already closed (early or by its deadline) is left as is.
+export async function closePoll(id: string): Promise<void> {
+  if (!isUuid(id)) return;
+  await db
+    .update(polls)
+    .set({ closedAt: sql`now()` })
+    .where(
+      and(
+        eq(polls.id, id),
+        isNull(polls.closedAt),
+        or(isNull(polls.deadline), gt(polls.deadline, sql`now()`)),
+      ),
+    );
 }
 
 // Deletes the poll; its options and votes go with it (ON DELETE CASCADE).

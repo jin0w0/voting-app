@@ -7,6 +7,8 @@ export const polls = pgTable("polls", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   // Null: no deadline, the poll stays open until closed early or deleted.
   deadline: timestamp("deadline", { withTimezone: true }),
+  // Set when the admin closes the poll early; a closed poll never reopens.
+  closedAt: timestamp("closed_at", { withTimezone: true }),
 });
 
 export const options = pgTable(

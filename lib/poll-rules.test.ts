@@ -147,17 +147,23 @@ describe("pollStatus", () => {
   const deadline = new Date("2026-10-01T09:00:00Z");
 
   it("is open when there is no deadline", () => {
-    expect(pollStatus({ deadline: null }, NOW)).toBe("open");
+    expect(pollStatus({ deadline: null, closedAt: null }, NOW)).toBe("open");
   });
 
   it("is open until the deadline", () => {
-    expect(pollStatus({ deadline }, new Date("2026-10-01T08:59:00Z"))).toBe("open");
+    expect(pollStatus({ deadline, closedAt: null }, new Date("2026-10-01T08:59:00Z"))).toBe("open");
   });
 
   it.each(["2026-10-01T09:00:00Z", "2026-10-01T09:00:01Z", "2027-01-01T00:00:00Z"])(
     "is closed from the deadline on (%s)",
     (now) => {
-      expect(pollStatus({ deadline }, new Date(now))).toBe("closed");
+      expect(pollStatus({ deadline, closedAt: null }, new Date(now))).toBe("closed");
     },
   );
+
+  it("is closed once the admin closed it early, deadline or not", () => {
+    const closedAt = new Date("2026-09-28T02:00:00Z");
+    expect(pollStatus({ deadline: null, closedAt }, NOW)).toBe("closed");
+    expect(pollStatus({ deadline, closedAt }, NOW)).toBe("closed");
+  });
 });
