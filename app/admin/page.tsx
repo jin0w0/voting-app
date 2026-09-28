@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PollResultsView } from "@/app/ui/poll-results";
+import { PollStatusLabel } from "@/app/ui/poll-status-label";
 import { requireAdmin } from "@/lib/admin-session";
 import { listPollsWithResults } from "@/lib/polls";
 import { closePollAction, deletePollAction, logout } from "./actions";
@@ -59,9 +60,12 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
                 className="flex flex-col gap-3 rounded-xl border border-zinc-200 px-4 py-4 dark:border-zinc-800"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <Link href={`/polls/${poll.id}`} className="font-medium hover:underline">
-                    {poll.question}
-                  </Link>
+                  <div className="flex min-w-0 flex-col items-start gap-1">
+                    <Link href={`/polls/${poll.id}`} className="font-medium hover:underline">
+                      {poll.question}
+                    </Link>
+                    <PollStatusLabel poll={poll} />
+                  </div>
                   <div className="flex shrink-0 gap-2">
                     {poll.status === "open" && (
                       <ConfirmButton

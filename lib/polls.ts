@@ -13,7 +13,14 @@ import {
   type Results,
 } from "./poll-rules";
 
-export type PollSummary = { id: string; question: string; totalVotes: number };
+export type PollSummary = {
+  id: string;
+  question: string;
+  totalVotes: number;
+  deadline: Date | null;
+  status: PollStatus;
+  now: Date;
+};
 
 export type Poll = {
   id: string;
@@ -37,12 +44,18 @@ const NEWEST_FIRST = [desc(polls.createdAt), desc(polls.id)];
 // Newest first. Always read at request time, never at build time.
 export async function listPolls(): Promise<PollSummary[]> {
   await connection();
-  return db
-    .select({ id: polls.id, question: polls.question, totalVotes: count(votes.id) })
+  const rows = await db
+    .select({ ...statusColumns, id: polls.id, question: polls.question, totalVotes: count(votes.id) })
     .from(polls)
     .leftJoin(votes, eq(votes.pollId, polls.id))
     .groupBy(polls.id)
     .orderBy(...NEWEST_FIRST);
+  return openFirst(rows.map((poll) => ({ ...poll, status: pollStatus(poll, poll.now) })));
+}
+
+// Open polls before closed ones; the sort is stable, so each group stays newest first.
+function openFirst<T extends { status: PollStatus }>(list: T[]): T[] {
+  return list.toSorted((a, b) => Number(a.status === "closed") - Number(b.status === "closed"));
 }
 
 // Returns null for an unknown or malformed id. Always read at request time;
@@ -180,11 +193,13 @@ export async function listPollsWithResults(): Promise<PollWithResults[]> {
       .orderBy(...NEWEST_FIRST),
     optionVoteCounts(),
   ]);
-  return pollRows.map((poll) => ({
-    ...poll,
-    status: pollStatus(poll, poll.now),
-    results: toResults(optionRows.filter((option) => option.pollId === poll.id)),
-  }));
+  return openFirst(
+    pollRows.map((poll) => ({
+      ...poll,
+      status: pollStatus(poll, poll.now),
+      results: toResults(optionRows.filter((option) => option.pollId === poll.id)),
+    })),
+  );
 }
 
 // Closes an open poll now; a poll that is already closed (early or by its deadline) is left as is.
