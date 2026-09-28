@@ -124,7 +124,7 @@ describe("validatePollInput", () => {
     },
   );
 
-  it.each(["", "tomorrow", "2026-13-01T10:00", "2026-10-01"])("rejects a malformed deadline %j", (deadline) => {
+  it.each(["", "tomorrow", "2026-13-01T10:00", "2026-10-01", "2026-02-30T10:00", "2026-11-31T10:00", "2026-10-01T24:00"])("rejects a malformed deadline %j", (deadline) => {
     expect(validate("질문", ["짜장", "짬뽕"], deadline)).toEqual({
       ok: false,
       errors: { deadline: "마감 시각을 다시 입력하세요." },

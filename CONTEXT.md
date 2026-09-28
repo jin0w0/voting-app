@@ -32,6 +32,10 @@ _Avoid_: Ballot, response, answer, 응답
 The count of votes for each option in a poll. While a poll is open, a voter sees its results only after voting in it; once it is closed, anyone can see them. The admin can always see them.
 _Avoid_: Tally, stats, score, 집계
 
+**Leading option** (1위):
+The option or options with the most votes in a poll's results; tied options all lead. No option leads while a poll has no votes.
+_Avoid_: Winner, top pick, 우승
+
 ## People
 
 **Voter** (투표자):

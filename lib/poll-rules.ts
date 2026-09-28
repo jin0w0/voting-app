@@ -76,7 +76,10 @@ export function formatKoreaTime(date: Date, now: Date): string {
 function parseKoreaTime(value: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return null;
   const date = new Date(value + ":00+09:00");
-  return Number.isNaN(date.getTime()) ? null : date;
+  if (Number.isNaN(date.getTime())) return null;
+  // Date rolls impossible values over (Feb 30 → Mar 2, 24:00 → next day); reject those.
+  const backInKorea = new Date(date.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 16);
+  return backInKorea === value ? date : null;
 }
 
 export type Results<T extends { votes: number }> = {

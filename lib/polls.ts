@@ -13,23 +13,15 @@ import {
   type Results,
 } from "./poll-rules";
 
-export type PollSummary = {
-  id: string;
-  question: string;
-  totalVotes: number;
-  deadline: Date | null;
-  status: PollStatus;
-  now: Date;
-};
+// Where a poll stands, judged on the database clock; now is kept for formatting its deadline.
+export type PollState = { deadline: Date | null; status: PollStatus; now: Date };
 
-export type Poll = {
+export type PollSummary = PollState & { id: string; question: string; totalVotes: number };
+
+export type Poll = PollState & {
   id: string;
   question: string;
   options: { id: string; name: string }[];
-  deadline: Date | null;
-  status: PollStatus;
-  // The database clock at read time, for formatting relative to "now".
-  now: Date;
 };
 
 // The database clock: every open/closed decision uses it, never the app server's clock.
@@ -38,6 +30,12 @@ const dbNow = sql<Date>`now()`.mapWith(polls.createdAt);
 
 // Everything pollStatus() needs, read in the same query as the poll.
 const statusColumns = { deadline: polls.deadline, closedAt: polls.closedAt, now: dbNow };
+
+function withStatus<T extends { deadline: Date | null; closedAt: Date | null; now: Date }>(
+  row: T,
+): T & { status: PollStatus } {
+  return { ...row, status: pollStatus(row, row.now) };
+}
 
 const NEWEST_FIRST = [desc(polls.createdAt), desc(polls.id)];
 
@@ -50,7 +48,7 @@ export async function listPolls(): Promise<PollSummary[]> {
     .leftJoin(votes, eq(votes.pollId, polls.id))
     .groupBy(polls.id)
     .orderBy(...NEWEST_FIRST);
-  return openFirst(rows.map((poll) => ({ ...poll, status: pollStatus(poll, poll.now) })));
+  return openFirst(rows.map(withStatus));
 }
 
 // Open polls before closed ones; the sort is stable, so each group stays newest first.
@@ -73,7 +71,7 @@ export const getPoll = cache(async (id: string): Promise<Poll | null> => {
     .from(options)
     .where(eq(options.pollId, id))
     .orderBy(asc(options.position));
-  return { ...poll, options: pollOptions, status: pollStatus(poll, poll.now) };
+  return { ...withStatus(poll), options: pollOptions };
 });
 
 export type CreatePollResult = { ok: true; id: string } | { ok: false; reason: "duplicate-option" };
@@ -140,13 +138,14 @@ export async function castVote(
   if (!isUuid(pollId)) return "poll-missing";
   if (!isUuid(optionId)) return "invalid-option";
 
-  const [option] = await db
+  // The option, if it belongs to this poll, with the poll's status.
+  const [target] = await db
     .select({ ...statusColumns, id: options.id })
     .from(options)
     .innerJoin(polls, eq(polls.id, options.pollId))
     .where(and(eq(options.id, optionId), eq(options.pollId, pollId)));
-  if (!option) return (await pollExists(pollId)) ? "invalid-option" : "poll-missing";
-  if (pollStatus(option, option.now) === "closed") return "closed";
+  if (!target) return (await pollExists(pollId)) ? "invalid-option" : "poll-missing";
+  if (withStatus(target).status === "closed") return "closed";
 
   try {
     await db.insert(votes).values({ pollId, optionId, voterId });
@@ -174,14 +173,7 @@ function hasPostgresCode(error: unknown, code: string): boolean {
   return false;
 }
 
-export type PollWithResults = {
-  id: string;
-  question: string;
-  deadline: Date | null;
-  status: PollStatus;
-  now: Date;
-  results: PollResults;
-};
+export type PollWithResults = PollState & { id: string; question: string; results: PollResults };
 
 // Every poll with its results, newest first, for the admin (who may see results without voting).
 export async function listPollsWithResults(): Promise<PollWithResults[]> {
@@ -195,14 +187,14 @@ export async function listPollsWithResults(): Promise<PollWithResults[]> {
   ]);
   return openFirst(
     pollRows.map((poll) => ({
-      ...poll,
-      status: pollStatus(poll, poll.now),
+      ...withStatus(poll),
       results: toResults(optionRows.filter((option) => option.pollId === poll.id)),
     })),
   );
 }
 
 // Closes an open poll now; a poll that is already closed (early or by its deadline) is left as is.
+// The WHERE clause is pollStatus()'s "open" rule in SQL, so the check and the write are one atomic step.
 export async function closePoll(id: string): Promise<void> {
   if (!isUuid(id)) return;
   await db
