@@ -31,3 +31,12 @@ npm install
 npm run dev      # http://localhost:3000, 운영자 화면은 /admin
 npm test         # Vitest (감시 모드). 한 번만 실행하려면 npx vitest run
 ```
+
+## DB 스키마 변경
+
+스키마는 `lib/db/schema.ts`에 있고, 마이그레이션 SQL은 `drizzle/`에 커밋합니다. 빌드와 배포는 DB를 건드리지 않으므로, 스키마를 바꾸면 직접 적용해야 합니다. 로컬과 운영이 같은 DB를 쓰니 적용하는 순간 운영에도 반영됩니다.
+
+```bash
+npm run db:generate -- --name <변경_이름>   # 스키마 변경으로 새 마이그레이션 SQL 생성
+npm run db:migrate                          # .env.local의 DATABASE_URL에 적용
+```
